@@ -41,40 +41,29 @@ FRAMEWORK_OPTIONS = [
 DEFAULT_FRAMEWORK = ["SASB Standards"]
 
 # -----------------------------------------------------------------------
-# MOCK AUDIT RESULTS
-# Each row: (criteria name, status, AI evidence excerpt).
-# Status must be one of the keys in STATUS_BADGES below.
+# COMPLIANCE ENGINE -- display config
+# Human-readable rule labels and status badge HTML.
 # -----------------------------------------------------------------------
-SASB_ROWS = [
-    (
-        "GHG Emissions (Scope 1 & 2)",
-        "PASS",
-        "'Total Scope 1 emissions reduced by 4%\u2026' (p.\u00a012)",
-    ),
-    (
-        "Supply Chain Disclosure (Scope 3)",
-        "PASS",
-        "'\u2026company disclosed comprehensive Scope 3 data\u2026' (p.\u00a015)",
-    ),
-    (
-        "Water Management Protocols",
-        "PARTIAL",
-        "'Water risk assessments conducted, targets unclear\u2026' (p.\u00a022)",
-    ),
-    (
-        "Renewable Energy Target (2030)",
-        "FAIL",
-        "No specific 2030 renewable energy target found in text.",
-    ),
-    (
-        "Labor Practices Disclosure",
-        "PASS",
-        "'\u2026all Tier 1 suppliers audited for labor compliance\u2026' (p.\u00a030)",
-    ),
-]
+RULE_LABELS = {
+    "high_transaction_amount": "High Transaction Amount",
+    "unknown_or_new_recipient": "Unknown / New Recipient",
+    "high_risk_country": "High-Risk Country",
+    "medium_risk_country": "Medium-Risk Country",
+    "vague_or_missing_details": "Vague / Missing Details",
+    "urgency_or_pressure_language": "Urgency Language",
+    "signature_verification": "Signature Verification",
+    "behavior_amount_vs_average": "Amount vs Average",
+    "behavior_typical_countries": "Typical Countries",
+    "behavior_usual_recipients": "Usual Recipients",
+}
 
-STATUS_BADGES = {
-    "PASS":    '<span class="sp sp-p">\u2705 PASS</span>',
-    "PARTIAL": '<span class="sp sp-w">\u26a0\ufe0f PARTIAL</span>',
-    "FAIL":    '<span class="sp sp-f">\u274c FAIL</span>',
+RULE_STATUS_BADGES = {
+    "pass": '<span class="sp sp-p">\u2705 PASS</span>',
+    "fail": '<span class="sp sp-f">\u274c FAIL</span>',
+}
+
+DECISION_CONFIG = {
+    "approve": {"icon": "\u2705", "label": "APPROVE", "class": "decision-approve"},
+    "review":  {"icon": "\u26a0\ufe0f", "label": "REVIEW",  "class": "decision-review"},
+    "reject":  {"icon": "\u274c", "label": "REJECT",  "class": "decision-reject"},
 }

@@ -10,6 +10,7 @@ working directory used to launch Streamlit.
 
 from pathlib import Path
 
+import pdfplumber
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -28,6 +29,14 @@ def load_css(*css_files: str) -> None:
     for relpath in css_files:
         parts.append((_ROOT / relpath).read_text(encoding="utf-8"))
     st.markdown(f"<style>{''.join(parts)}</style>", unsafe_allow_html=True)
+
+
+def extract_pdf_text(uploaded_file) -> str:
+    """Extract all text from an uploaded PDF via pdfplumber."""
+    uploaded_file.seek(0)
+    with pdfplumber.open(uploaded_file) as pdf:
+        pages = [page.extract_text() or "" for page in pdf.pages]
+    return "\n".join(pages)
 
 
 def load_js(js_file: str, *, height: int = 0) -> None:
