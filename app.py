@@ -70,10 +70,10 @@ load_css(
 # PAGE LAYOUT
 # -----------------------------------------------------------------------
 render_hero()
-uploaded_file, standards, run_audit = render_input_zone()
+uploaded_file, standards, signature_match, client_profile, run_audit = render_input_zone()
 
 if run_audit and uploaded_file is not None:
-    render_results(uploaded_file, standards)
+    render_results(uploaded_file, standards, signature_match, client_profile)
 elif run_audit:
     st.error(
         "\u26a0\ufe0f  Please upload a PDF sustainability report "

@@ -1,36 +1,62 @@
 """
-components/results.py -- Audit results display
-ESG Provenance Auditor
+components/results.py -- Compliance analysis results display
+AI Banking Compliance Auditor
 
-Renders everything that appears after the user clicks "Run AI Audit":
-  - Loading spinner
-  - Report header with company name and verified chip
-  - Key metrics (left column)
-  - SASB compliance breakdown table (right column)
+Renders the full analysis output after the user clicks "Run AI Audit":
+  - PDF text extraction via pdfplumber
+  - Compliance engine execution
+  - Decision banner (approve / review / reject)
+  - Risk metric cards
+  - Compliance rules table
+  - Markov chain analysis (expandable)
   - Blockchain verification footer with SHA-256 hash
 """
 
 import hashlib
+import json
 import time
 
 import streamlit as st
 
 import config
+from compliance_engine import analyze_banking_compliance
+from helpers import extract_pdf_text
 
 
-def render_results(uploaded_file, standards: list[str]) -> None:
-    """Display the full audit results panel.
+_RISK_COLOR = {
+    "low": "var(--pass)",
+    "medium": "var(--warn)",
+    "high": "var(--fail)",
+}
 
-    Args:
-        uploaded_file: The Streamlit UploadedFile from the file uploader.
-        standards:     List of selected framework strings.
-    """
-    # ── Simulated agent processing ────────────────────────────────
+
+def render_results(
+    uploaded_file,
+    standards: list[str],
+    signature_match: bool,
+    client_profile: dict,
+) -> None:
+    """Run the compliance engine on the uploaded PDF and display results."""
+
+    # ── Extract text from PDF ─────────────────────────────────────
+    with st.spinner("Extracting text from PDF\u2026"):
+        pdf_text = extract_pdf_text(uploaded_file)
+
+    if not pdf_text.strip():
+        st.warning(
+            "\u26a0\ufe0f Could not extract readable text from this PDF. "
+            "The analysis will be based on limited data."
+        )
+
+    # ── Run compliance engine ─────────────────────────────────────
     with st.spinner(
-        "Agent analyzing PDF structure\u2026 extracting ESG metrics\u2026 "
-        "verifying SASB compliance\u2026"
+        "Analyzing transaction data\u2026 checking compliance rules\u2026 "
+        "running Markov analysis\u2026"
     ):
-        time.sleep(3)
+        result = analyze_banking_compliance(
+            pdf_text, client_profile, signature_match
+        )
+        time.sleep(1)
 
     company = (
         uploaded_file.name.rsplit(".", 1)[0]
@@ -39,17 +65,38 @@ def render_results(uploaded_file, standards: list[str]) -> None:
         .upper()
     )
 
-    # ── Report header ─────────────────────────────────────────────
+    decision = result["final_decision"]
+    dec = config.DECISION_CONFIG[decision]
+    risk = result["overall_risk"]
+    score = result["risk_score"]
+    markov = result["markov_analysis"]
+    behavior = result["behavior_analysis"]
+    risk_color = _RISK_COLOR.get(risk, "var(--text-mid)")
+
+    # ── Decision banner ───────────────────────────────────────────
     st.markdown(
         f"""
         <div class="results">
-        <div class="report-bar">
+        <div class="decision-bar {dec['class']}">
+            <div style="font-size:1.6rem;line-height:1;">{dec['icon']}</div>
             <div>
-                <span class="slabel" style="margin-bottom:.18rem;">Audit Report</span>
-                <div style="font-family:var(--f-display);font-size:1.35rem;font-weight:700;
-                            color:var(--text-hi);letter-spacing:-.022em;">{company}</div>
+                <span class="slabel" style="margin-bottom:.15rem;">
+                    Compliance Report</span>
+                <div style="font-family:var(--f-display);font-size:1.25rem;
+                    font-weight:700;color:var(--text-hi);
+                    letter-spacing:-.022em;">{company}</div>
             </div>
-            <span class="verified-chip">\u2713 Verified</span>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;">
+                <div style="text-align:right;">
+                    <span class="slabel">Risk Score</span>
+                    <div style="font-family:var(--f-display);font-size:1.5rem;
+                        font-weight:800;color:{risk_color};">{score}<span
+                        style="font-size:.7rem;color:var(--text-lo);
+                        font-weight:500;">/100</span></div>
+                </div>
+                <div class="decision-chip decision-chip--{decision}">
+                    {dec['label']}</div>
+            </div>
         </div>
         </div>
         """,
@@ -58,44 +105,55 @@ def render_results(uploaded_file, standards: list[str]) -> None:
 
     m_col, d_col = st.columns([1, 2], gap="large")
 
-    # ── Left column: key metrics ──────────────────────────────────
+    # ── Left column: risk metrics ─────────────────────────────────
     with m_col:
         st.markdown(
-            '<span class="slabel">Key Metrics</span>',
+            '<span class="slabel">Risk Assessment</span>',
             unsafe_allow_html=True,
         )
+
         st.markdown(
-            """
+            f"""
             <div class="metric-card stagger-1">
-                <div class="mc-label">Overall Compliance Score</div>
-                <div class="mc-value">82%</div>
-                <div class="mc-delta mc-delta--pos">\u25b2 Highly Compliant</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            """
-            <div class="metric-card stagger-2" style="margin-top:0.75rem;">
-                <div class="mc-label">Data Transparency Rating</div>
-                <div class="mc-value">A\u2212</div>
-                <div class="mc-delta mc-delta--pos">\u25b2 High</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            """
-            <div class="metric-card stagger-3" style="margin-top:0.75rem;">
-                <div class="mc-label">Flagged Issues</div>
-                <div class="mc-value">2</div>
-                <div class="mc-delta mc-delta--pos">\u2193 \u22121 vs Last Year</div>
+                <div class="mc-label">Overall Risk</div>
+                <div class="mc-value" style="color:{risk_color};">
+                    {risk.upper()}</div>
+                <div class="mc-delta" style="color:{risk_color};">
+                    Score: {score}/100</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        # Applied-standards card
+        exit_color = _RISK_COLOR.get(result["exit_risk"], "var(--text-mid)")
+        st.markdown(
+            f"""
+            <div class="metric-card stagger-2" style="margin-top:.75rem;">
+                <div class="mc-label">Exit Risk</div>
+                <div class="mc-value" style="color:{exit_color};">
+                    {result['exit_risk'].upper()}</div>
+                <div class="mc-delta" style="color:var(--text-mid);">
+                    Signature: {result['signature_verification'].upper()}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        beh_label = "ANOMALOUS" if behavior["is_anomalous"] else "NORMAL"
+        beh_color = "var(--fail)" if behavior["is_anomalous"] else "var(--pass)"
+        st.markdown(
+            f"""
+            <div class="metric-card stagger-3" style="margin-top:.75rem;">
+                <div class="mc-label">Client Behavior</div>
+                <div class="mc-value" style="color:{beh_color};">
+                    {beh_label}</div>
+                <div class="mc-delta" style="color:var(--text-mid);">
+                    Default prob: {markov['probability_of_default']}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         stds_html = "".join(
             f'<div class="std-item"><span class="std-dot"></span>{s}</div>'
             for s in standards
@@ -103,29 +161,35 @@ def render_results(uploaded_file, standards: list[str]) -> None:
         st.markdown(
             f"""
             <div class="std-card">
-                <span class="slabel" style="margin-bottom:.5rem;">Applied Standards</span>
+                <span class="slabel" style="margin-bottom:.5rem;">
+                    Applied Standards</span>
                 {stds_html}
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    # ── Right column: SASB compliance table ───────────────────────
+    # ── Right column: compliance rules table ──────────────────────
     with d_col:
         st.markdown(
-            '<span class="slabel">SASB Compliance Breakdown</span>',
+            '<span class="slabel">Compliance Rules</span>',
             unsafe_allow_html=True,
         )
 
         rows_html = ""
-        for i, (crit, status, excerpt) in enumerate(config.SASB_ROWS):
-            stripe = "background:rgba(255,255,255,0.013);" if i % 2 == 0 else ""
-            badge = config.STATUS_BADGES[status]
+        for i, rule in enumerate(result["rules"]):
+            stripe = (
+                "background:rgba(255,255,255,0.013);" if i % 2 == 0 else ""
+            )
+            name = config.RULE_LABELS.get(rule["rule"], rule["rule"])
+            badge = config.RULE_STATUS_BADGES.get(
+                rule["status"], rule["status"]
+            )
             rows_html += (
                 f'<tr style="{stripe}">'
-                f"<td>{crit}</td>"
+                f"<td>{name}</td>"
                 f'<td style="text-align:center;">{badge}</td>'
-                f"<td>{excerpt}</td>"
+                f"<td>{rule['evidence']}</td>"
                 f"</tr>"
             )
 
@@ -135,9 +199,9 @@ def render_results(uploaded_file, standards: list[str]) -> None:
             <table class="audit-tbl">
                 <thead>
                     <tr>
-                        <th>Audit Criteria</th>
+                        <th>Rule</th>
                         <th style="text-align:center;">Status</th>
-                        <th>AI Evidence Excerpt</th>
+                        <th>Evidence</th>
                     </tr>
                 </thead>
                 <tbody>{rows_html}</tbody>
@@ -147,10 +211,40 @@ def render_results(uploaded_file, standards: list[str]) -> None:
             unsafe_allow_html=True,
         )
 
+    # ── Markov chain analysis (collapsible) ───────────────────────
+    with st.expander("\U0001f4ca Markov Chain Analysis"):
+        mc = st.columns(4)
+        with mc[0]:
+            st.markdown(
+                f"**Current State**\n\n`{markov['current_state']}`"
+            )
+        with mc[1]:
+            st.markdown(
+                f"**Predicted Outcome**\n\n`{markov['predicted_outcome']}`"
+            )
+        with mc[2]:
+            st.markdown(
+                f"**Default Probability**\n\n"
+                f"`{markov['probability_of_default']}`"
+            )
+        with mc[3]:
+            probs = markov["transition_probabilities"]
+            st.markdown(
+                "**Transitions**\n\n"
+                + "\n".join(f"- {k}: `{v}`" for k, v in probs.items())
+            )
+        st.caption(markov["reasoning"])
+
+    # ── Full reasoning (collapsible) ──────────────────────────────
+    with st.expander("\U0001f4dd Full Reasoning"):
+        st.markdown(result["reasoning"])
+
     # ── Blockchain verification footer ────────────────────────────
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    audit_hash = hashlib.sha256(uploaded_file.name.encode()).hexdigest()
+    audit_hash = hashlib.sha256(
+        json.dumps(result, sort_keys=True, default=str).encode()
+    ).hexdigest()
     stds_joined = ", ".join(standards) if standards else "SASB Standards"
 
     st.markdown(
@@ -168,12 +262,15 @@ def render_results(uploaded_file, standards: list[str]) -> None:
             </div>
             <div class="chain-grid">
                 <div>
-                    <span class="slabel" style="margin-bottom:.3rem;">Audit Hash (SHA-256)</span>
+                    <span class="slabel" style="margin-bottom:.3rem;">
+                        Audit Hash (SHA-256)</span>
                     <div class="hash-val">{audit_hash}</div>
                     <div class="chain-status">
-                        Status: <strong>Anchored to Silent Data (Applied Blockchain L2)</strong>
+                        Status: <strong>Anchored to Silent Data
+                        (Applied Blockchain L2)</strong>
                     </div>
-                    <div class="chain-sub">Standards applied: {stds_joined}</div>
+                    <div class="chain-sub">
+                        Standards applied: {stds_joined}</div>
                 </div>
                 <div>
                     <a href="#" class="chain-link">
