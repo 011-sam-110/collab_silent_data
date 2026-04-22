@@ -1,5 +1,5 @@
 # AI Banking Compliance Auditor
-
+<img width="1920" height="3517" alt="screencapture-localhost-8501-2026-04-23-00_26_40" src="https://github.com/user-attachments/assets/9067b182-157f-487d-a96a-33e5ac50d758" />
 An intelligent, real-time compliance analysis platform built for the **Silent Data Hackathon**. Upload any banking document or transaction report and receive an instant, AI-powered risk verdict — powered by a custom rule engine, Markov chain credit modelling, and Google Gemini.
 
 > **Hackathon project** — built collaboratively by a team of three developers under time pressure and shipped end-to-end in a single event.
@@ -40,6 +40,7 @@ The final verdict is one of three decisions: **Approve**, **Manual Review**, or 
 - **Probabilistic modelling** — Markov chain state machine with dynamically weighted transition matrices
 - **UI/UX** — design token system, CSS custom properties, staggered animations, fintech-grade dark theme
 - **System design** — layered architecture (ingestion → rule engine → AI analyst → verification), clean public API surface on the compliance engine
+
 
 ---
 
